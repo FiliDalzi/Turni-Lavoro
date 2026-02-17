@@ -1,0 +1,308 @@
+<!DOCTYPE html>
+<html lang="it">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+<title>Turni Lavoro</title>
+<link rel="shortcut icon" href="icon-512.png" type="image/x-icon">
+<link rel="manifest" href="manifest.json">
+<meta name="theme-color" content="#007AFF">
+
+<!-- Supabase JS -->
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+
+<style>
+:root {
+    --apple-blue: #007AFF;
+    --barbara-color: #ff2d55;
+    --ludovica-color: #5856d6;
+    --bg-gray: #f2f2f7;
+}
+body { font-family: -apple-system, system-ui, sans-serif; background-color: var(--bg-gray); margin:0; padding:20px; padding-top:80px; }
+.top-nav { position: fixed; top:0; left:0; right:0; height:70px; display:flex; justify-content:space-between; align-items:center; padding:0 20px; background: rgba(242,242,247,0.8); backdrop-filter: blur(10px); z-index:9999; }
+.nav-btn { background:white; border:none; border-radius:12px; height:45px; padding:0 15px; box-shadow:0 2px 8px rgba(0,0,0,0.1); cursor:pointer; display:flex; align-items:center; justify-content:center; color:var(--apple-blue); font-weight:600; font-size:14px; gap:8px; }
+h1 { font-size:28px; font-weight:700; margin-bottom:20px; }
+.calendar-list { background:white; border-radius:12px; overflow:hidden; list-style:none; padding:0; margin:0; box-shadow:0 1px 3px rgba(0,0,0,0.05); }
+.day-row { display:flex; align-items:center; padding:12px 15px; border-bottom:1px solid #e5e5ea; cursor:pointer; }
+.date-box { width:50px; text-align:center; border-right:1px solid #f2f2f7; margin-right:15px; flex-shrink:0; }
+.weekday { font-size:10px; color:#ff3b30; text-transform:uppercase; font-weight:700; }
+.daynum { font-size:20px; font-weight:500; }
+.turns-container { flex-grow:1; display:flex; flex-direction:column; gap:4px; }
+.turn-tag { padding:5px 10px; border-radius:6px; font-size:12px; color:white; font-weight:600; }
+.tag-barbara { background-color: var(--barbara-color); }
+.tag-ludovica { background-color: var(--ludovica-color); }
+#entry-modal { position: fixed; inset:0; background: rgba(0,0,0,0.5); z-index:10000; display:none; align-items:flex-end; }
+#entry-modal.active { display:flex; }
+.modal-content { background:white; width:100%; border-radius:20px 20px 0 0; padding:30px; box-sizing:border-box; }
+#user-modal { position:fixed; inset:0; background:var(--bg-gray); z-index:20000; display:none; flex-direction:column; align-items:center; justify-content:center; }
+.choice-btn { width:80%; padding:20px; margin:10px; border-radius:15px; border:none; font-size:18px; font-weight:600; color:white; cursor:pointer; }
+input { width:100%; padding:15px; margin:15px 0; border:1px solid #d1d1d6; border-radius:10px; font-size:17px; box-sizing:border-box; }
+.btn-save { background:var(--apple-blue); color:white; border:none; padding:16px; width:100%; border-radius:12px; font-size:17px; font-weight:600; }
+@media print {
+
+    body {
+        padding: 0;
+        margin: 0;
+        background: white;
+        font-size: 9px;
+    }
+
+    .top-nav, #entry-modal, #user-modal, #user-title {
+        display: none !important;
+    }
+
+    .calendar-list {
+        display: grid !important;
+        grid-template-columns: repeat(4, 1fr);
+        grid-gap: 5px;
+        padding: 0;
+        margin: 0;
+    }
+
+    .day-row {
+        display: block !important;
+        padding: 2px 4px;
+        margin: 0;
+        border: 1px solid #000;
+        page-break-inside: avoid;
+    }
+
+    /* 🔹 TUTTI I TURNI NERI */
+    .turn-tag {
+        display: inline-block !important;
+        margin: 1px 2px 1px 0;
+        font-size: 7px;
+        padding: 2px 4px;
+        background: none !important;
+        color: black !important;
+        border: 1px solid black;
+    }
+
+    .weekday, .daynum {
+        font-size: 8px;
+        color: black !important;
+    }
+
+    @page {
+        margin: 0.5cm;
+        size: A4 landscape;
+    }
+}@media print {
+
+    body {
+        padding: 0;
+        margin: 0;
+        background: white;
+        font-size: 9px;
+    }
+
+    .top-nav, #entry-modal, #user-modal, #user-title {
+        display: none !important;
+    }
+
+    .calendar-list {
+        display: grid !important;
+        grid-template-columns: repeat(4, 1fr);
+        grid-gap: 5px;
+        padding: 0;
+        margin: 0;
+    }
+
+    .day-row {
+        display: block !important;
+        padding: 2px 4px;
+        margin: 0;
+        border: 1px solid #000;
+        page-break-inside: avoid;
+    }
+
+    /* 🔹 TUTTI I TURNI NERI */
+    .turn-tag {
+        display: inline-block !important;
+        margin: 1px 2px 1px 0;
+        font-size: 7px;
+        padding: 2px 4px;
+        background: none !important;
+        color: black !important;
+        border: 1px solid black;
+    }
+
+    .weekday, .daynum {
+        font-size: 8px;
+        color: black !important;
+    }
+
+    @page {
+        margin: 0.5cm;
+        size: A4 landscape;
+    }
+}
+
+</style>
+</head>
+<body>
+
+<div class="top-nav">
+    <button class="nav-btn" onclick="logout()">Account</button>
+    <button class="nav-btn" onclick="window.print()">Stampa</button>
+</div>
+
+<h1 id="user-title">I Turni</h1>
+<ul class="calendar-list" id="calendar"></ul>
+
+<div id="user-modal">
+    <h2 style="margin-bottom:30px;">Chi sei?</h2>
+    <button class="choice-btn" style="background: var(--barbara-color)" onclick="login('Barbara')">Barbara</button>
+    <button class="choice-btn" style="background: var(--ludovica-color)" onclick="login('Ludovica')">Ludovica</button>
+</div>
+
+<div id="entry-modal" onclick="closeModal()">
+    <div class="modal-content" onclick="event.stopPropagation()">
+        <h3 id="modal-date-label">Giorno</h3>
+        <input type="text" id="shift-time" placeholder="Es: 08:00 - 14:00" autofocus>
+        <button class="btn-save" onclick="saveShift()">Salva</button>
+    </div>
+</div>
+
+<script>
+const supabaseUrl = 'https://lygqagdzxnapqhksitvk.supabase.co';
+const supabaseKey = 'sb_publishable_RJ0rK2ctiCCxvV71shVRZA_sAfXO-u5';
+const supabaseClient = supabase.createClient(supabaseUrl, supabaseKey);
+
+let selectedDate = null;
+
+function getCurrentUser() {
+    return localStorage.getItem('user_name');
+}
+
+function showUserModal(show = true) {
+    document.getElementById('user-modal').style.display = show ? 'flex' : 'none';
+}
+
+function updateTitle() {
+    const user = getCurrentUser();
+    document.getElementById('user-title').innerText = user ? "Turni: " + user : "I Turni";
+}
+
+// LOGIN / LOGOUT
+function login(name) {
+    localStorage.setItem('user_name', name);
+    showUserModal(false);
+    updateTitle();
+    loadCalendar();
+}
+
+function logout() {
+    localStorage.removeItem('user_name');
+    document.getElementById('calendar').innerHTML = '';
+    updateTitle();
+    showUserModal(true);
+}
+
+// CALENDAR LOAD
+async function loadCalendar() {
+    const list = document.getElementById('calendar');
+    list.innerHTML = '';
+
+    let { data: dataDB, error } = await supabaseClient
+        .from('turni')
+        .select('*')
+        .order('data', { ascending: true });
+
+    if (error) {
+        console.error("Errore Supabase:", error);
+        list.innerHTML = '<li style="padding:15px;color:red;">Errore caricamento turni</li>';
+        return;
+    }
+
+    const oggi = new Date();
+    for (let i = 0; i < 28; i++) {
+        const d = new Date(oggi);
+        d.setDate(oggi.getDate() + i);
+        const isoDate = d.toISOString().split('T')[0];
+
+        const li = document.createElement('li');
+        li.className = 'day-row';
+        li.onclick = () => openModal(isoDate, d.toLocaleDateString('it-IT', { weekday: 'long', day: 'numeric' }));
+
+        const turniGiorno = dataDB.filter(t => t.data === isoDate);
+        let tagsHtml = '';
+        turniGiorno.forEach(t => {
+            const cls = t.utente.toLowerCase() === 'barbara' ? 'tag-barbara' : 'tag-ludovica';
+            tagsHtml += `<span class="turn-tag ${cls}">${t.utente}: ${t.tipo_turno}</span>`;
+        });
+
+        li.innerHTML = `
+            <div class="date-box">
+                <div class="weekday">${d.toLocaleDateString('it-IT', { weekday: 'short' })}</div>
+                <div class="daynum">${d.getDate()}</div>
+            </div>
+            <div class="turns-container">
+                ${tagsHtml || '<span style="color:#d1d1d6; font-size: 12px;">Libero</span>'}
+            </div>
+        `;
+        list.appendChild(li);
+    }
+}
+
+// SALVA TURNO
+async function saveShift() {
+    const time = document.getElementById('shift-time').value.trim();
+    const currentUser = getCurrentUser();
+    if (!time || !selectedDate || !currentUser) return;
+
+    const { error } = await supabaseClient.from('turni').insert([{
+        utente: currentUser,
+        data: selectedDate,
+        tipo_turno: time
+    }]);
+
+    if (!error) {
+        closeModal();
+        loadCalendar();
+        document.getElementById('shift-time').value = '';
+    } else {
+        alert("Errore inserimento: " + error.message);
+    }
+}
+
+// MODAL
+function openModal(date, label) {
+    selectedDate = date;
+    document.getElementById('modal-date-label').innerText = label;
+    document.getElementById('entry-modal').classList.add('active');
+    setTimeout(() => document.getElementById('shift-time').focus(), 100);
+}
+
+function closeModal() {
+    document.getElementById('entry-modal').classList.remove('active');
+}
+
+// INIT
+window.addEventListener('DOMContentLoaded', () => {
+    const user = getCurrentUser();
+    if (!user) {
+        showUserModal(true);
+    } else {
+        updateTitle();
+        loadCalendar();
+    }
+
+    // Account button
+    const accountBtn = document.querySelector('.top-nav .nav-btn');
+    accountBtn.addEventListener('click', logout);
+
+    // Print button
+    const printBtn = document.querySelectorAll('.top-nav .nav-btn')[1];
+    printBtn.addEventListener('click', () => window.print());
+});
+
+// SERVICE WORKER
+if ('serviceWorker' in navigator) {
+    navigator.serviceWorker.register('sw.js')
+        .then(() => console.log('Service Worker registrato'))
+        .catch(err => console.error('Service Worker errore:', err));
+}
+</script>
+</body>
+</html>
